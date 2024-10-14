@@ -50,14 +50,26 @@ def adjust_brightness(direction):
         current_color[selected_color] = max(current_color[selected_color] - brightness_step, 0)
     update_led()
 
+# Debounce funkce pro tlačítko
+def debounce_button():
+    state = lgpio.gpio_read(h, ButtonPin)
+    time.sleep(0.05)  # Debounce delay 50 ms
+    if state == lgpio.gpio_read(h, ButtonPin):
+        return state
+    return None
+
 # Funkce pro detekci změny na enkodéru
+last_a = 0
 def read_encoder():
+    global last_a
     state_a = lgpio.gpio_read(h, EncPinA)
     state_b = lgpio.gpio_read(h, EncPinB)
-    if state_a == 0 and state_b == 1:
-        return "up"
-    elif state_a == 1 and state_b == 0:
-        return "down"
+    if state_a != last_a:
+        last_a = state_a
+        if state_a == 1 and state_b == 0:
+            return "up"
+        elif state_a == 1 and state_b == 1:
+            return "down"
     return None
 
 # Hlavní smyčka
@@ -70,8 +82,8 @@ try:
         if direction:
             adjust_brightness(direction)
 
-        # Zjištění, jestli bylo stisknuto tlačítko
-        if lgpio.gpio_read(h, ButtonPin) == 0:  # Tlačítko stisknuto
+        # Debounce tlačítka
+        if debounce_button() == 0:  # Tlačítko stisknuto
             selected_color = (selected_color + 1) % 3  # Přepínání mezi R, G, B
             color_name = ["Red", "Green", "Blue"][selected_color]
             print(f"Vybraná barva: {color_name}")
