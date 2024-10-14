@@ -1,7 +1,7 @@
 import lgpio
 import time
 
-# Definice GPIO pinů
+# Definování GPIO pinů
 RedPin = 17
 GreenPin = 27
 BluePin = 22
@@ -9,39 +9,39 @@ EncPinA = 23
 EncPinB = 24
 ButtonPin = 25
 
-# Nastavení frekvence PWM a kroku jasu
-PWM_FREQ = 1000
-brightness_step = 10
-
-# Výchozí nastavení barev (0-100)
-current_color = [0, 0, 0]  # R, G, B
-selected_color = 0  # 0 = R, 1 = G, 2 = B
+PWM_FREQ = 1000  # Frekvence PWM
+brightness_step = 10  # Krok pro zvýšení/snížení jasu
 
 # Inicializace GPIO
-h = lgpio.gpiochip_open(0)  # Otevře přístup k GPIO čipu
+h = lgpio.gpiochip_open(0)  # Otevření GPIO čipu
 
-# Nastavení pinů pro vstup a výstup
+# Nastavení pinů pro enkodér a tlačítko
 lgpio.gpio_claim_input(h, EncPinA)
 lgpio.gpio_claim_input(h, EncPinB)
 lgpio.gpio_claim_input(h, ButtonPin)
 
+# Nastavení výstupních pinů pro RGB LED
 lgpio.gpio_claim_output(h, RedPin)
 lgpio.gpio_claim_output(h, GreenPin)
 lgpio.gpio_claim_output(h, BluePin)
 
-# Nastavení PWM na výstupních pinech
+# Nastavení PWM na jednotlivé piny
 lgpio.tx_pwm(h, RedPin, PWM_FREQ, 0)
 lgpio.tx_pwm(h, GreenPin, PWM_FREQ, 0)
 lgpio.tx_pwm(h, BluePin, PWM_FREQ, 0)
 
-# Funkce pro aktualizaci jasu LED
+# Výchozí barvy
+current_color = [0, 0, 0]  # R, G, B jasy v procentech (0-100)
+selected_color = 0  # 0 = červená, 1 = zelená, 2 = modrá
+
+# Funkce pro aktualizaci PWM signálu pro LED
 def update_led():
     lgpio.tx_pwm(h, RedPin, PWM_FREQ, current_color[0])
     lgpio.tx_pwm(h, GreenPin, PWM_FREQ, current_color[1])
     lgpio.tx_pwm(h, BluePin, PWM_FREQ, current_color[2])
-    print(f"R={current_color[0]}, G={current_color[1]}, B={current_color[2]}")
+    print(f"R={current_color[0]}%, G={current_color[1]}%, B={current_color[2]}%")
 
-# Funkce pro změnu jasu na základě otočení enkodéru
+# Funkce pro změnu jasu vybrané barvy
 def adjust_brightness(direction):
     global current_color
     if direction == "up":
@@ -50,50 +50,51 @@ def adjust_brightness(direction):
         current_color[selected_color] = max(current_color[selected_color] - brightness_step, 0)
     update_led()
 
-# Debounce funkce pro tlačítko
-def debounce_button():
-    state = lgpio.gpio_read(h, ButtonPin)
-    time.sleep(0.05)  # Debounce delay 50 ms
-    if state == lgpio.gpio_read(h, ButtonPin):
-        return state
-    return None
-
-# Funkce pro detekci změny na enkodéru
-last_a = 0
+# Funkce pro čtení stavu enkodéru
+last_state = 0
 def read_encoder():
-    global last_a
+    global last_state
     state_a = lgpio.gpio_read(h, EncPinA)
     state_b = lgpio.gpio_read(h, EncPinB)
-    if state_a != last_a:
-        last_a = state_a
-        if state_a == 1 and state_b == 0:
+    encoder_value = (state_a << 1) | state_b  # Spojení stavů pinů A a B do jednoho čísla
+
+    if last_state != encoder_value:
+        if last_state == 0b00 and encoder_value == 0b01:  # Rotace doprava
             return "up"
-        elif state_a == 1 and state_b == 1:
+        elif last_state == 0b00 and encoder_value == 0b10:  # Rotace doleva
             return "down"
+    last_state = encoder_value
     return None
+
+# Funkce pro debounce tlačítka
+def debounce_button():
+    if lgpio.gpio_read(h, ButtonPin) == 0:
+        time.sleep(0.05)  # 50ms debounce
+        if lgpio.gpio_read(h, ButtonPin) == 0:
+            return True
+    return False
 
 # Hlavní smyčka
 try:
-    print("Program spuštěn. Stiskni tlačítko pro změnu barvy.")
-
+    print("Program spuštěn. Otáčej enkodérem a stiskni tlačítko pro změnu barvy.")
     while True:
-        # Čtení z enkodéru
+        # Zpracování rotace enkodéru
         direction = read_encoder()
         if direction:
             adjust_brightness(direction)
 
-        # Debounce tlačítka
-        if debounce_button() == 0:  # Tlačítko stisknuto
+        # Zpracování tlačítka (změna barvy)
+        if debounce_button():
             selected_color = (selected_color + 1) % 3  # Přepínání mezi R, G, B
             color_name = ["Red", "Green", "Blue"][selected_color]
             print(f"Vybraná barva: {color_name}")
-            time.sleep(0.5)  # Debounce pro tlačítko
+            time.sleep(0.5)  # Malý delay pro zabránění dvojímu stisku
 
-        time.sleep(0.1)  # Krátká pauza pro snížení zátěže CPU
+        time.sleep(0.1)  # Pauza pro snížení zátěže CPU
 
 except KeyboardInterrupt:
-    pass
+    print("Ukončuji program.")
 
 finally:
-    # Ukončení a čištění GPIO
+    # Vyčištění GPIO a zavření připojení
     lgpio.gpiochip_close(h)
