@@ -55,4 +55,4 @@ The Python script controls the RGB LED and listens to the rotary encoder events.
 
 1. Clone the repository to your Raspberry Pi:
    ```bash
-   git clone https://github.com/your-repo-name/rotary-encoder-rgb-led.git
+   git clone https://github.com/Hudineks/Disco_Hudini
