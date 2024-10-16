@@ -3,8 +3,8 @@ import time
 
 # Nastavení GPIO pinů
 RedPin = 17
-GreenPin = 27
-BluePin = 22
+GreenPin = 22
+BluePin = 27
 EncPinA = 23
 EncPinB = 24
 ButtonPin = 25
