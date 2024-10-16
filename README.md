@@ -34,8 +34,8 @@ The components should be wired to the Raspberry Pi's GPIO pins as follows:
 
 - **RGB LED**:
   - Red leg → GPIO 17 (with a resistor)
-  - Green leg → GPIO 27 (with a resistor)
-  - Blue leg → GPIO 22 (with a resistor)
+  - Green leg → GPIO 22 (with a resistor)
+  - Blue leg → GPIO 27 (with a resistor)
   - Common leg (anode/cathode) → Ground or VCC depending on LED type
 
 - **Rotary Encoder**:
