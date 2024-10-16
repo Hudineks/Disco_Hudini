@@ -14,8 +14,6 @@ current_color = [0, 0, 0]  # RGB hodnoty (0-100 pro PWM)
 selected_color = 0  # Index aktuálně vybrané barvy (0=Red, 1=Green, 2=Blue)
 brightness_step = 10  # Krok změny jasu (0-100)
 
-# Potlačení varování o používání stejných pinů
-GPIO.setwarnings(False)
 # Resetování GPIO při spuštění
 GPIO.cleanup()
 
@@ -58,9 +56,9 @@ def encoder_callback(channel):
     
     # Zamezení častým změnám (debounce)
     current_time = time.time()
-    if current_time - last_rotary_time < 0.1:  # 100 ms debounce
-        return
-    last_rotary_time = current_time
+  #  if current_time - last_rotary_time < 0.10:  # 100 ms debounce
+  #      return
+  #  last_rotary_time = current_time
     
     a_state = GPIO.input(EncPinA)
     b_state = GPIO.input(EncPinB)
@@ -69,10 +67,10 @@ def encoder_callback(channel):
     if a_state != last_a_state:  # Změna stavu enkodéru
         if a_state == b_state:
             # Otáčení ve směru hodinových ručiček
-            current_color[selected_color] = min(current_color[selected_color] + brightness_step, 100)
+            current_color[selected_color] = max(current_color[selected_color] - brightness_step, 0)
         else:
             # Otáčení proti směru hodinových ručiček
-            current_color[selected_color] = max(current_color[selected_color] - brightness_step, 0)
+            current_color[selected_color] = min(current_color[selected_color] + brightness_step, 100)
         
         update_led()  # Aktualizace LED
     
@@ -87,7 +85,7 @@ def button_callback(channel):
 def loop():
     """Hlavní smyčka programu pro zpracování událostí."""
     GPIO.add_event_detect(EncPinA, GPIO.BOTH, callback=encoder_callback)
-    GPIO.add_event_detect(ButtonPin, GPIO.FALLING, callback=button_callback, bouncetime=300)
+    GPIO.add_event_detect(ButtonPin, GPIO.FALLING, callback=button_callback, bouncetime=200)
     
     try:
         while True:
