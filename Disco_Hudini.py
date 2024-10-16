@@ -1,85 +1,77 @@
-import lgpio
+import RPi.GPIO as GPIO
 import time
 
-# Pin definitions (adjust as needed)
-ROTARY_CLK_PIN = 17  # Rotary encoder CLK pin
-ROTARY_DT_PIN = 27   # Rotary encoder DT pin
-BUTTON_PIN = 22      # Rotary encoder push button
-LED_R_PIN = 23       # Red channel
-LED_G_PIN = 24       # Green channel
-LED_B_PIN = 25       # Blue channel
+# Nastavení GPIO pinů
+RedPin = 17
+GreenPin = 27
+BluePin = 22
+EncPinA = 23
+EncPinB = 24
+ButtonPin = 25
 
-# Initial setup
-h = lgpio.gpiochip_open(0)  # Open GPIO chip
-lgpio.gpio_claim_input(h, ROTARY_CLK_PIN)
-lgpio.gpio_claim_input(h, ROTARY_DT_PIN)
-lgpio.gpio_claim_input(h, BUTTON_PIN)
+PWM_FREQ = 1000
+current_color = [0, 0, 0]
+selected_color = 0
+brightness_step = 10
 
-lgpio.gpio_claim_output(h, LED_R_PIN)
-lgpio.gpio_claim_output(h, LED_G_PIN)
-lgpio.gpio_claim_output(h, LED_B_PIN)
+# Potlačení varování o používaných pinech
+GPIO.setwarnings(False)
 
-# Initial values
-current_color = [255, 0, 0]  # Red, Green, Blue
-brightness = 255
-last_clk = lgpio.gpio_read(h, ROTARY_CLK_PIN)
+# Resetování GPIO při spuštění
+GPIO.cleanup()
 
-def set_led_color(color, brightness):
-    """ Set LED color with brightness adjustment. """
-    r = int(color[0] * (brightness / 255))
-    g = int(color[1] * (brightness / 255))
-    b = int(color[2] * (brightness / 255))
-    
-    lgpio.gpio_write(h, LED_R_PIN, r)
-    lgpio.gpio_write(h, LED_G_PIN, g)
-    lgpio.gpio_write(h, LED_B_PIN, b)
+def setup():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(RedPin, GPIO.OUT)
+    GPIO.setup(GreenPin, GPIO.OUT)
+    GPIO.setup(BluePin, GPIO.OUT)
+    GPIO.setup(EncPinA, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(EncPinB, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(ButtonPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-def change_color():
-    """ Cycle through primary colors: Red, Green, Blue. """
+    global red_pwm, green_pwm, blue_pwm
+    red_pwm = GPIO.PWM(RedPin, PWM_FREQ)
+    green_pwm = GPIO.PWM(GreenPin, PWM_FREQ)
+    blue_pwm = GPIO.PWM(BluePin, PWM_FREQ)
+    red_pwm.start(0)
+    green_pwm.start(0)
+    blue_pwm.start(0)
+
+def update_led():
+    red_pwm.ChangeDutyCycle(current_color[0])
+    green_pwm.ChangeDutyCycle(current_color[1])
+    blue_pwm.ChangeDutyCycle(current_color[2])
+    print(f"R={current_color[0]}, G={current_color[1]}, B={current_color[2]}")
+
+def encoder_callback(channel):
     global current_color
-    if current_color == [255, 0, 0]:  # Red
-        current_color = [0, 255, 0]  # Green
-    elif current_color == [0, 255, 0]:  # Green
-        current_color = [0, 0, 255]  # Blue
+    a_state = GPIO.input(EncPinA)
+    b_state = GPIO.input(EncPinB)
+    
+    if a_state == b_state:
+        current_color[selected_color] = min(current_color[selected_color] + brightness_step, 100)
     else:
-        current_color = [255, 0, 0]  # Red
-
-def read_encoder():
-    """ Read rotary encoder to adjust brightness. """
-    global last_clk, brightness
-    clk_state = lgpio.gpio_read(h, ROTARY_CLK_PIN)
-    dt_state = lgpio.gpio_read(h, ROTARY_DT_PIN)
+        current_color[selected_color] = max(current_color[selected_color] - brightness_step, 0)
     
-    if clk_state != last_clk:
-        if dt_state != clk_state:
-            brightness += 10
-        else:
-            brightness -= 10
-        
-        brightness = max(0, min(brightness, 255))  # Keep brightness within bounds
-        last_clk = clk_state
-        print(f"Brightness: {brightness}")
-        set_led_color(current_color, brightness)
+    update_led()
 
-# Main loop
-try:
-    print("Rotary encoder and RGB LED program started.")
-    set_led_color(current_color, brightness)
+def button_callback(channel):
+    global selected_color
+    selected_color = (selected_color + 1) % 3
+    print(f"Vybraná barva: {'Červená' if selected_color == 0 else 'Zelená' if selected_color == 1 else 'Modrá'}")
+
+def loop():
+    GPIO.add_event_detect(EncPinA, GPIO.BOTH, callback=encoder_callback)
+    GPIO.add_event_detect(ButtonPin, GPIO.FALLING, callback=button_callback, bouncetime=300)
     
-    while True:
-        read_encoder()
-        
-        # Button pressed: change color
-        if lgpio.gpio_read(h, BUTTON_PIN) == 0:
-            change_color()
-            print(f"Color changed to: {current_color}")
-            set_led_color(current_color, brightness)
-            time.sleep(0.3)  # Debounce delay
-        
-        time.sleep(0.01)
+    try:
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        GPIO.cleanup()
 
-except KeyboardInterrupt:
-    pass
-
-finally:
-    lgpio.gpiochip_close(h)  # Close GPIO chip
+if __name__ == '__main__':
+    setup()
+    loop()
