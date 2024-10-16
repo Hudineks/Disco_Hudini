@@ -1,1 +1,1 @@
-Pro správnou funkci tohoto kódu je třeba mít nainstalovaný balíček RPi.LGPIO a mít správně zapojený obvod s RPi. Viz README
+Pro správnou funkci tohoto kódu je třeba mít nainstalovaný balíček RPi.lgpio a mít správně zapojený obvod s RPi. Viz README
