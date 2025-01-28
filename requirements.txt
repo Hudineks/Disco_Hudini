@@ -1,1 +1,3 @@
-Pro správnou funkci tohoto kódu je třeba mít nainstalovaný balíček RPi.lgpio a mít správně zapojený obvod s RPi. Viz README
+numpy==1.21.0
+pandas==1.3.0
+scikit-learn==0.24.2
